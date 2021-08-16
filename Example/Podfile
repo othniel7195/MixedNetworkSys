@@ -1,0 +1,13 @@
+use_frameworks!
+
+platform :ios, '9.0'
+
+target 'MixedNetworkSys_Example' do
+  pod 'MixedNetworkSys', :path => '../'
+
+  target 'MixedNetworkSys_Tests' do
+    inherit! :search_paths
+
+    
+  end
+end
