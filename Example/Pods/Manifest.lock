@@ -1,0 +1,39 @@
+PODS:
+  - Alamofire (5.4.3)
+  - MixedNetworkSys (0.1.0):
+    - Alamofire
+    - OHHTTPStubs/Swift
+  - OHHTTPStubs/Core (9.1.0)
+  - OHHTTPStubs/Default (9.1.0):
+    - OHHTTPStubs/Core
+    - OHHTTPStubs/JSON
+    - OHHTTPStubs/NSURLSession
+    - OHHTTPStubs/OHPathHelpers
+  - OHHTTPStubs/JSON (9.1.0):
+    - OHHTTPStubs/Core
+  - OHHTTPStubs/NSURLSession (9.1.0):
+    - OHHTTPStubs/Core
+  - OHHTTPStubs/OHPathHelpers (9.1.0)
+  - OHHTTPStubs/Swift (9.1.0):
+    - OHHTTPStubs/Default
+
+DEPENDENCIES:
+  - MixedNetworkSys (from `../`)
+
+SPEC REPOS:
+  trunk:
+    - Alamofire
+    - OHHTTPStubs
+
+EXTERNAL SOURCES:
+  MixedNetworkSys:
+    :path: "../"
+
+SPEC CHECKSUMS:
+  Alamofire: e447a2774a40c996748296fa2c55112fdbbc42f9
+  MixedNetworkSys: 69b7454202a57f0cd6e77a33286cf156feaf721a
+  OHHTTPStubs: 90eac6d8f2c18317baeca36698523dc67c513831
+
+PODFILE CHECKSUM: a0d13def8afcdf305b18e5a4795d6e13b97858db
+
+COCOAPODS: 1.10.1

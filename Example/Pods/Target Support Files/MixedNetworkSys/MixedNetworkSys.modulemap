@@ -1,0 +1,6 @@
+framework module MixedNetworkSys {
+  umbrella header "MixedNetworkSys-umbrella.h"
+
+  export *
+  module * { export * }
+}
