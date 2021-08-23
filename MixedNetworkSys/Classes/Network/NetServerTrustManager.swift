@@ -8,6 +8,27 @@
 import Foundation
 import Alamofire
 
+public class NetServerTrustManager: ServerTrustManager {
+    
+    public override func serverTrustEvaluator(forHost host: String) throws -> ServerTrustEvaluating? {
+        
+        var realHost = host
+        if let domian = HTTPDNS.getOriginDomain(ipAddress: host) {
+            realHost = domian
+        }
+        guard let evaluator = evaluators[realHost] else {
+            if allHostsMustBeEvaluated {
+                throw AFError.serverTrustEvaluationFailed(reason: .noRequiredEvaluator(host: host))
+            }
+
+            return nil
+        }
+
+        return evaluator
+    }
+}
+
+
 public final class NetServerTrustEvaluating: ServerTrustEvaluating {
     private let certificates: [SecCertificate]
     private let acceptSelfSignedCertificates: Bool

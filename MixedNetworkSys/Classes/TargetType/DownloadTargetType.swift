@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Alamofire
 
 public protocol Downloadable {
   var url: URL { get }
@@ -65,7 +66,7 @@ extension DownloadTargetType {
 public typealias DownloadFileDestination = (
   _ temporaryURL: URL,
   _ response: URLResponse
-) -> URL
+) -> (destinationURL: URL, options: DownloadRequest.Options)
 
 public func suggestedDownloadDestination(
   for directory: FileManager.SearchPathDirectory = .documentDirectory,
@@ -75,9 +76,9 @@ public func suggestedDownloadDestination(
     let directoryURLs = FileManager.default.urls(for: directory, in: domain)
 
     if let suggestedFilename = response.suggestedFilename, !directoryURLs.isEmpty {
-      return directoryURLs[0].appendingPathComponent(suggestedFilename)
+      return (directoryURLs[0].appendingPathComponent(suggestedFilename), [])
     }
 
-    return temporaryURL
+    return (temporaryURL, [])
   }
 }

@@ -1,17 +1,17 @@
 //
-//  NetworkProvider.swift
+//  NetworkProvider2.swift
 //  MixedNetworkSys
 //
-//  Created by zf on 2021/8/22.
+//  Created by jimmy on 2021/8/23.
 //
 
 import Foundation
 import Alamofire
 
+public typealias Completion = (_ result: Result<Response, NetError>) -> Void
 
-/// QuicksilverProvider supports Data request, like REST API.
-open class NetworkProvider {
-  
+public typealias ProgressBlock = (Progress) -> Void
+
 
 func safeAsync(queue: DispatchQueue?, closure: @escaping () -> Void) {
   switch queue {
@@ -30,505 +30,181 @@ func safeAsync(queue: DispatchQueue?, closure: @escaping () -> Void) {
   }
 }
 
+open class NetworkProvider {
+    
+    public let configuration: NetworkURLSessionConfiguration
+    public let plugins: [PluginType]
+    
+    let callbackQueue: DispatchQueue
+    let sessionManager: Session
+    var headers: HTTPHeaders
+    var targetType: TargetType
+    
+    deinit {
+      sessionManager.cancelAllRequests()
+    }
+    
+    public init(
+        configuration: NetworkURLSessionConfiguration,
+        plugins: [PluginType] = [],
+        hosts: [String],
+        callbackQueue: DispatchQueue? = nil
+    ) {
+        self.configuration = configuration
+        self.plugins = plugins
+        self.callbackQueue = callbackQueue ?? DispatchQueue.main
+        
+        let servertrustManager = certificateVerification(hosts: hosts)
+        let requestInterceptor = NetRequestInterceptor(plugins)
+        sessionManager = Session(configuration: configuration.urlSessionConfiguration, interceptor: requestInterceptor, serverTrustManager: servertrustManager)
+    }
+    
+    public func request(_ targetType: DataTargetType,
+                        callbackQueue: DispatchQueue? = .none,
+                        completion: @escaping Completion) {
+        defaultHeaders()
+        handleExtraHeaders(targetType.headers)
+        let dnsResult = handleDNS(targetType)
+        sessionManager.request(dnsResult.0,
+                   method: targetType.method,
+                   parameters: mergedParam(targetType),
+                   encoding: configuration.requestParamaterEncodeType,
+                   headers: headers) { [weak self] urlRequest in
+            guard let self = self else { return }
+            urlRequest = self.preparedRequest(urlRequest, target: targetType)
+        }
+        .validate(statusCode: targetType.validation.statusCodes)
+        .responseData { [weak self] res in
+            guard let self = self else { return }
+            if let originHost = dnsResult.1, res.error != nil {
+                HTTPDNS.setDomainCacheFailed(originHost)
+            }
+            let response = Response(statusCode: res.response?.statusCode, data: res.data, request: res.request, response: res.response)
+            var reponseResult: Result<Response, NetError>
+            switch res.result {
+            case .success:
+                reponseResult = .success(response)
+            case .failure(let error):
+                reponseResult = .failure(NetError.underlying(error, response))
+            }
+            
+            self.plugins.forEach { $0.didReceive(reponseResult, target: targetType) }
+            
+            safeAsync(queue: (callbackQueue ?? self.callbackQueue), closure: {
+                let processedResult = self.plugins.reduce(reponseResult) {
+                    $1.process($0, target: targetType)
+                }
+                completion(processedResult)
+            })
+        }
+    }
+    
+    public func download(_ targetType: DownloadTargetType,
+                         callbackQueue: DispatchQueue? = .none,
+                         progress: ProgressBlock?,
+                         completion: @escaping Completion) {
+        if let resumeData = targetType.resource.resumeData {
+            sessionManager.download(resumingWith: resumeData, to: targetType.downloadDestination)
+                .responseData { res in
+                    let data = res.response?.url?.path.data(using: .utf8)
+                    
+            }
+        }
+        
+    }
+    
+}
+
+
 extension NetworkProvider {
-  func configSessionManager() {
-
-  }
-
-  /// Creates a function which, when called, executes the appropriate stubbing behavior for the given parameters.
-  /// Only support Data Target Type.
-  func createStubFunction(
-    _ token: TaskToken,
-    forTarget target: TargetType,
-    withCompletion completion: @escaping Completion,
-    plugins: [PluginType],
-    request: URLRequest
-  ) -> (() -> Void) {
-    if let target = target as? DataTargetType {
-      return {
-        if token.isCancelled {
-          self.cancelCompletion(completion, target: target)
-          return
-        }
-
-        let validate = { (response: Response) -> Result<Response, NetError> in
-          let validCodes = target.validation.statusCodes
-          guard !validCodes.isEmpty else { return .success(response) }
-          if validCodes.contains(response.statusCode) {
-            return .success(response)
-          } else {
-            let statusError = NetError.statusCode(response)
-            let error = NetError.underlying(statusError, response)
-            return .failure(error)
+    
+    private func mergedParam(_ target: TargetType)  -> [String: Any] {
+        var mergedParams: [String: Any] = target.parameters ?? [String: Any]()
+        plugins.forEach { plugin in
+          if let extraParameters = plugin.extraParameters {
+            extraParameters.forEach { (key, value) in
+              mergedParams[key] = value
+            }
           }
         }
+        return mergedParams
+    }
+    
+    private func preparedRequest(_ request: URLRequest, target: TargetType) -> URLRequest {
+        return plugins.reduce(request) { $1.prepare($0, target: target) }
+    }
+    
+    private func certificateVerification(hosts: [String]) ->  NetServerTrustManager? {
+        if configuration.httpsCertificateLocalVerify == true, let bundle = configuration.certificatesBundle {
+            let policy = NetServerTrustEvaluating(certificates: bundle.af.certificates)
+            var evaluators: [String: ServerTrustEvaluating]
+            hosts.forEach { str in
+                evaluators[str] = policy
+            }
+            return NetServerTrustManager(evaluators: evaluators)
+        }
+        return nil
+    }
+}
 
-        if let sampleResponseClosure = target.sampleResponse {
-          switch sampleResponseClosure() {
-          case .networkResponse(let statusCode, let data):
-            let response = Response(
-              statusCode: statusCode,
-              data: data,
-              request: request,
-              response: nil
-            )
-            let result = validate(response)
-            plugins.forEach { $0.didReceive(result, target: target) }
-            completion(result)
-          case .response(let customResponse, let data):
-            let response = Response(
-              statusCode: customResponse.statusCode,
-              data: data,
-              request: request,
-              response: customResponse
-            )
-            let result = validate(response)
-            plugins.forEach { $0.didReceive(result, target: target) }
-            completion(result)
-          case .networkError(let error):
-            let error = NetError.underlying(error, nil)
-            plugins.forEach { $0.didReceive(.failure(error), target: target) }
-            completion(.failure(error))
-          }
+
+
+extension NetworkProvider {
+    
+    private func defaultHeaders() {
+        let headers = [String: String]()
+        self.headers = HTTPHeaders(headers)
+    }
+    
+    private func handleExtraHeaders(_ headers: [String: String]?) {
+        guard let headers = headers else {
+            return
+        }
+        headers.forEach { (k, v) in
+            self.headers.add(name: k, value: v)
+        }
+    }
+    
+    private func handleHost(_ originHost: String) {
+        headers.add(name: "Host", value: originHost)
+    }
+    
+    private func checkShouldUseHTTPDNS(target: TargetType) -> Bool {
+        if target is DataTargetType {
+        return configuration.useHTTPDNS
+      } else if let target = target as? DownloadTargetType {
+        if let scheme = target.resource.url.scheme, scheme != "https" {
+          return configuration.useHTTPDNS
         } else {
-          let error = NetError.underlying(
-            NSError(domain: NSURLErrorDomain, code: NSURLErrorUnknown, userInfo: nil),
-            nil
-          )
-          plugins.forEach { $0.didReceive(.failure(error), target: target) }
-          completion(.failure(error))
+          return false
         }
-      }
-    } else {
-      fatalError("Stub function only support Data Target Type.")
-    }
-  }
-
-  func requestNormal(
-    _ target: TargetType,
-    callbackQueue: DispatchQueue?,
-    progress: ProgressBlock? = .none,
-    completion: @escaping Completion
-  ) -> TaskToken {
-    let pluginsWithCompletion: Completion = { result in
-      let processedResult = self.plugins.reduce(result) { $1.process($0, target: target) }
-      completion(processedResult)
-    }
-    let result: (URLRequest?, NetError?, String?) = getTargetRequest(target)
-    if let request = result.0 {
-      let preparedRequest = self.plugins.reduce(request) { $1.prepare($0, target: target) }
-      return performRequest(
-        target,
-        request: preparedRequest,
-        callbackQueue: callbackQueue,
-        progress: progress,
-        originHost: result.2,
-        completion: pluginsWithCompletion
-      )
-    } else {
-      let task = TaskToken.simpleTask()
-      let finalError = result.1 ?? NetError.requestMapping(target)
-      pluginsWithCompletion(.failure(finalError))
-      task.cancel()
-      return task
-    }
-  }
-
-  func performRequest(
-    _ target: TargetType,
-    request: URLRequest,
-    callbackQueue: DispatchQueue?,
-    progress: ProgressBlock?,
-    originHost: String?,
-    completion: @escaping Completion
-  ) -> TaskToken {
-    if let target = target as? DataTargetType {
-      if case .never = configuration.stub {
-        return sendRequest(
-          target,
-          request: request,
-          callbackQueue: callbackQueue,
-          progress: nil,
-          originHost: originHost,
-          completion: completion
-        )
-      } else if target.sampleResponse == nil {
-        return sendRequest(
-          target,
-          request: request,
-          callbackQueue: callbackQueue,
-          progress: nil,
-          originHost: originHost,
-          completion: completion
-        )
       } else {
-        return performStubRequest(
-          target,
-          callbackQueue: callbackQueue,
-          completion: completion,
-          stubBehavior: configuration.stub
-        )
-      }
-    } else if let target = target as? DownloadTargetType {
-      return sendRequest(
-        target,
-        request: request,
-        callbackQueue: callbackQueue,
-        progress: progress,
-        originHost: originHost,
-        completion: completion
-      )
-    } else if let target = target as? UploadTargetType {
-      return sendRequest(
-        target,
-        request: request,
-        callbackQueue: callbackQueue,
-        progress: progress,
-        originHost: originHost,
-        completion: completion
-      )
-    } else {
-      fatalError("\(target) not support")
-    }
-  }
-
-  func performStubRequest(
-    _ target: DataTargetType,
-    callbackQueue: DispatchQueue?,
-    completion: @escaping Completion,
-    stubBehavior: StubBehavior
-  ) -> TaskToken {
-    let callbackQueue = callbackQueue ?? self.callbackQueue
-    let stubTask = TaskToken.stubTask()
-    let requestResult = getTargetRequest(target)
-    if let request = requestResult.0 {
-      plugins.forEach { $0.willSend(request, target: target) }
-      let stub: () -> Void = createStubFunction(
-        stubTask,
-        forTarget: target,
-        withCompletion: completion,
-        plugins: plugins,
-        request: request
-      )
-      switch stubBehavior {
-      case .immediate:
-        safeAsync(queue: callbackQueue) {
-          stubTask.finished()
-          stub()
-        }
-      case .delayed(let delay):
-        let killTimeOffset = Int64(CDouble(delay) * CDouble(NSEC_PER_SEC))
-        let killTime = DispatchTime.now() + Double(killTimeOffset) / Double(NSEC_PER_SEC)
-        (callbackQueue ?? DispatchQueue.main).asyncAfter(deadline: killTime) {
-          stubTask.finished()
-          stub()
-        }
-      case .never:
-        fatalError("Method called to stub request when stubbing is disabled.")
-      }
-    } else {
-      safeAsync(queue: callbackQueue) {
-        stubTask.finished()
-        completion(.failure(NetError.requestMapping(target)))
+        return configuration.useHTTPDNS
       }
     }
-    return stubTask
-  }
+    
+    private func handleDNS(_ target: TargetType) -> (URL, String?) {
+        let url = target.fullRequestURL
 
-  func cancelCompletion(_ completion: Completion, target: TargetType) {
-    let error = NetError.underlying(
-      NSError(domain: NSURLErrorDomain, code: NSURLErrorCancelled, userInfo: nil),
-      nil
-    )
-    plugins.forEach { $0.didReceive(.failure(error), target: target) }
-    completion(.failure(error))
-  }
-
-  func getTargetRequest(_ target: TargetType) -> (URLRequest?, NetError?, String?) {
-    func request(
-      _ finalURL: URL,
-      originHost: String? = nil,
-      dnsResult: HTTPDNSResult? = nil
-    ) -> (URLRequest?, NetError?, String?) {
-      let fullUrlString = finalURL.absoluteString
-      var serializationError: NSError?
-      var mergedParams: [String: Any] = target.parameters ?? [:]
-      plugins.forEach { plugin in
-        if let extraParameters = plugin.extraParameters {
-          extraParameters.forEach { (key, value) in
-            mergedParams[key] = value
-          }
+        guard checkShouldUseHTTPDNS(target: target) else {
+          return (url, nil)
         }
-      }
-
-      var request: NSMutableURLRequest
-      if let target = target as? UploadTargetType,
-        case .multipartForm(let constructingBody) = target.uploadType
-      {
-        target.fullRequestURL
-        request = URLRequest
-        AF.request(<#T##convertible: URLConvertible##URLConvertible#>, method: <#T##HTTPMethod#>, parameters: <#T##Encodable?#>, encoder: <#T##ParameterEncoder#>, headers: <#T##HTTPHeaders?#>, interceptor: <#T##RequestInterceptor?#>, requestModifier: <#T##Session.RequestModifier?##Session.RequestModifier?##(inout URLRequest) throws -> Void#>)
-      }
-      else {
-        sessionManager.request(fullUrlString, method: Alamofire.HTTPMethod(rawValue: target.method.rawValue), parameters: mergedParams, encoder: configuration.requestParamaterEncodeType, headers: <#T##HTTPHeaders?#>, interceptor: <#T##RequestInterceptor?#>, requestModifier: <#T##Session.RequestModifier?##Session.RequestModifier?##(inout URLRequest) throws -> Void#>)
-        request = sessionManager.request(
-          withMethod: target.method.rawValue,
-          urlString: fullUrlString,
-          parameters: mergedParams,
-          error: &serializationError
-        )
-      }
-
-      if let timeout = target.timeoutInterval {
-        request.timeoutInterval = timeout
-      }
-
-      if let error = serializationError {
-        return (nil, NetError.underlying(error, nil), nil)
-      } else {
-        if let headers = target.headers {
-          headers.forEach { key, value in
-            request.setValue(value, forHTTPHeaderField: key)
-          }
+        guard let host = url.host else {
+          return (url, nil)
         }
-        if let originHost = originHost {
-          request.setValue(originHost, forHTTPHeaderField: "Host")
+        guard let dnsResult = HTTPDNS.query(host) else {
+          return (url, nil)
         }
-        if let originHost = originHost, let dnsResult = dnsResult, dnsResult.fromCached {
-          return (request as URLRequest, nil, originHost)
+
+        guard let ipURL = url.network_replacingHost(host, with: dnsResult.ipAddress) else {
+          return (url, nil)
+        }
+        handleHost(host)
+        if dnsResult.fromCached {
+            return (ipURL, host)
         } else {
-          return (request as URLRequest, nil, nil)
+            return (ipURL, nil)
         }
-      }
     }
-
-    let url = target.fullRequestURL
-
-    guard checkShouldUseHTTPDNS(target: target) else {
-      return request(url)
-    }
-    guard let host = url.host else {
-      return request(url)
-    }
-    guard let dnsResult = HTTPDNS.query(host) else {
-      return request(url)
-    }
-
-    guard let ipURL = url.network_replacingHost(host, with: dnsResult.ipAddress) else {
-      return request(url)
-    }
-
-    return request(ipURL, originHost: host, dnsResult: dnsResult)
-  }
-
 }
 
-
-extension NetworkProvider {
-  func sendRequest(
-    _ target: TargetType,
-    request: URLRequest,
-    callbackQueue: DispatchQueue?,
-    progress: ProgressBlock?,
-    originHost: String?,
-    completion: @escaping Completion
-  ) -> TaskToken {
-    let plugins = self.plugins
-    plugins.forEach { $0.willSend(request, target: target) }
-
-    var taskToken: TaskToken!
-
-    let completionHandler: (URLResponse?, Any?, Error?) -> Void = {
-      response, responseObject, error in
-      let httpURLResponse = response as? HTTPURLResponse
-      let data = (responseObject ?? nil) as? Data
-      if let originHost = originHost, error != nil {
-        HTTPDNS.setDomainCacheFailed(originHost)
-      }
-      let result = convertResponseToResult(
-        httpURLResponse,
-        request: request,
-        data: data,
-        error: error,
-        with: target
-      )
-      plugins.forEach { $0.didReceive(result, target: target) }
-
-      safeAsync(queue: callbackQueue) {
-        taskToken.finished()
-        completion(result)
-      }
-    }
-
-    let task: URLSessionTask
-    if target as? DataTargetType != nil {
-      task = af_dataTask(with: request, completionHandler: completionHandler)
-    } else if let downloadTarget = target as? DownloadTargetType {
-      task = af_downloadTask(
-        with: request,
-        downloadTarget: downloadTarget,
-        callbackQueue: callbackQueue,
-        progress: progress,
-        completionHandler: completionHandler
-      )
-    } else if let uploadTarget = target as? UploadTargetType {
-      task = af_uploadTask(
-        with: request,
-        target: uploadTarget,
-        callbackQueue: callbackQueue,
-        progress: progress,
-        completionHandler: completionHandler
-      )
-    } else {
-      fatalError("\(target) not support.")
-    }
-    task.priority = target.priority
-
-    taskToken = TaskToken(sessionTask: task)
-    taskToken.resume()
-
-    return taskToken
-  }
-}
-
-// MARK: - DataTargetType
-
-extension NetworkProvider {
-  private func af_dataTask(
-    with request: URLRequest,
-    completionHandler: @escaping (URLResponse?, Any?, Error?) -> Void
-  ) -> URLSessionDataTask {
-    sessionManager.request(<#T##convertible: URLConvertible##URLConvertible#>)
-    return sessionManager.dataTask(
-      with: request,
-      uploadProgress: nil,
-      downloadProgress: nil,
-      completionHandler: completionHandler
-    )
-  }
-}
-
-// MARK: - UploadTargetType
-
-extension QuicksilverProvider {
-  private func af_uploadTask(
-    with request: URLRequest,
-    target: UploadTargetType,
-    callbackQueue: DispatchQueue?,
-    progress: ProgressBlock?,
-    completionHandler: @escaping (URLResponse?, Any?, Error?) -> Void
-  ) -> URLSessionUploadTask {
-    let progressClusre: ((Progress) -> Void) = { _progress in
-      let sendProgress: () -> Void = {
-        progress?(_progress)
-      }
-      safeAsync(queue: callbackQueue) {
-        sendProgress()
-      }
-    }
-
-    switch target.uploadType {
-    case .data(let data):
-      return sessionManager.uploadTask(
-        with: request,
-        from: data,
-        progress: progressClusre,
-        completionHandler: completionHandler
-      )
-    case .file(let fileURL):
-      return sessionManager.uploadTask(
-        with: request,
-        fromFile: fileURL,
-        progress: progressClusre,
-        completionHandler: completionHandler
-      )
-    case .multipartForm:
-      return sessionManager.uploadTask(
-        with: request,
-        from: nil,
-        progress: progress,
-        completionHandler: completionHandler
-      )
-    }
-  }
-}
-
-// MARK: - DownloadTargetType
-
-extension QuicksilverProvider {
-  private func af_downloadTask(
-    with request: URLRequest,
-    downloadTarget: DownloadTargetType,
-    callbackQueue: DispatchQueue?,
-    progress: ProgressBlock?,
-    completionHandler: @escaping (URLResponse?, Any?, Error?) -> Void
-  ) -> URLSessionDownloadTask {
-    let progressClusre: (Progress) -> Void = { _progress in
-      let sendProgress: () -> Void = {
-        progress?(_progress)
-      }
-      safeAsync(queue: callbackQueue) {
-        sendProgress()
-      }
-    }
-
-    if let resumeData = downloadTarget.resource.resumeData {
-      return sessionManager.downloadTask(
-        withResumeData: resumeData,
-        progress: progressClusre,
-        destination: downloadTarget.downloadDestination,
-        completionHandler: { response, url, error in
-          let data = url?.path.data(using: .utf8)
-          completionHandler(response, data, error)
-        }
-      )
-    } else {
-      return sessionManager.downloadTask(
-        with: request,
-        progress: progressClusre,
-        destination: downloadTarget.downloadDestination,
-        completionHandler: { response, url, error in
-          let data = url?.path.data(using: .utf8)
-          completionHandler(response, data, error)
-        }
-      )
-    }
-  }
-}
-
-
-private func convertResponseToResult(
-  _ response: HTTPURLResponse?,
-  request: URLRequest?,
-  data: Data?,
-  error: Error?,
-  with target: TargetType
-) -> Result<Response, NetError> {
-  if let response = response, error == nil {
-    let customResponse = Response(
-      statusCode: response.statusCode,
-      data: data ?? Data(),
-      request: request,
-      response: response
-    )
-    if target.validation.statusCodes.contains(response.statusCode) {
-      return .success(customResponse)
-    } else {
-      let error = NetError.statusCode(customResponse)
-      return .failure(error)
-    }
-  } else {
-    let statusCode = response?.statusCode ?? 400  // client error with the case about response is nil
-    let customResponse = Response(
-      statusCode: statusCode, data: data ?? Data(), request: request, response: response)
-    let error = NetError.underlying(
-      error ?? NSError(
-        domain: NSURLErrorDomain,
-        code: NSURLErrorUnknown,
-        userInfo: [NSLocalizedDescriptionKey: "Request failed with unknown Error"]
-      ),
-      customResponse
-    )
-    return .failure(error)
-  }
-}

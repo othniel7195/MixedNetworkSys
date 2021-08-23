@@ -18,7 +18,7 @@ public struct NetworkURLSessionConfiguration {
 
     let requestParamaterEncodeType: ParameterEncoding
 
-  public let urlSessionConfiguration: URLSessionConfiguration
+    public let urlSessionConfiguration: URLSessionConfiguration
 
   /// 初始化
   /// - Parameter useHTTPDNS: 是否使用 HTTPDNS。默认为 true
@@ -36,6 +36,6 @@ public struct NetworkURLSessionConfiguration {
     self.httpsCertificateLocalVerify = httpsCertificateLocalVerify
     self.certificatesBundle = certificatesBundle
     self.requestParamaterEncodeType = requestParamaterEncodeType
-    self.urlSessionConfiguration = .default
+    self.urlSessionConfiguration = URLSessionConfiguration.af.default
   }
 }
