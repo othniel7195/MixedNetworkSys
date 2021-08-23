@@ -8,111 +8,10 @@
 import Foundation
 import Alamofire
 
-/// Closure to be executed when a request has completed.
-public typealias Completion = (_ result: Result<Response, NetError>) -> Void
-
-public typealias ProgressBlock = (Progress) -> Void
 
 /// QuicksilverProvider supports Data request, like REST API.
 open class NetworkProvider {
-  /// A list of plugins.
-  /// e.g. for logging, network activity indicator or credentials.
-  public let plugins: [PluginType]
-
-  /// session Manager session configuration, includes https local verify and httpdns config
-  public let configuration: NetworkURLSessionConfiguration
-
-  deinit {
-    sessionManager.cancelAllRequests()
-  }
-
-  /// 初始化
-  /// - Parameter configuration: 配置
-  /// - Parameter plugins: 插件列表。例如 Log 插件、权限验证插件、网络活动指示器插件
-  /// - Parameter callbackQueue: 回调队列。若未指定，将使用 main
-  public init(
-    configuration: NetworkURLSessionConfiguration,
-    plugins: [PluginType] = [],
-    callbackQueue: DispatchQueue? = nil
-  ) {
-    self.callbackQueue = callbackQueue
-    self.plugins = plugins
-    self.configuration = configuration
-
-    self.sessionManager = Alamofire.Session(session: <#T##URLSession#>, delegate: <#T##SessionDelegate#>, rootQueue: <#T##DispatchQueue#>)
-    configSessionManager()
-  }
-
-  @discardableResult
-  public func request(
-    _ dataTarget: DataTargetType,
-    callbackQueue: DispatchQueue? = .none,
-    progress: ProgressBlock? = .none,
-    completion: @escaping Completion
-  ) -> NetworkDataTask {
-    return requestNormal(
-      dataTarget,
-      callbackQueue: callbackQueue ?? self.callbackQueue,
-      progress: progress,
-      completion: completion
-    )
-  }
-
-  @discardableResult
-  public func download(
-    _ downloadTarget: DownloadTargetType,
-    callbackQueue: DispatchQueue? = .none,
-    progress: ProgressBlock? = .none,
-    completion: @escaping Completion
-  ) -> NetworkDownloadTask {
-    return requestNormal(
-      downloadTarget,
-      callbackQueue: callbackQueue ?? self.callbackQueue,
-      progress: progress,
-      completion: completion
-    )
-  }
-
-  @discardableResult
-  public func upload(
-    _ uploadTarget: UploadTargetType,
-    callbackQueue: DispatchQueue? = .none,
-    progress: ProgressBlock? = .none,
-    completion: @escaping Completion
-  ) -> NetworkUploadTask {
-    return requestNormal(
-      uploadTarget,
-      callbackQueue: callbackQueue ?? self.callbackQueue,
-      progress: progress,
-      completion: completion
-    )
-  }
-
-  /// Only support Data Target Type.
-  /// StubRequest Task only supports `cancel`, resume and suspend is not working.
-  @discardableResult
-  public func stubRequest(
-    _ target: DataTargetType,
-    callbackQueue: DispatchQueue?,
-    completion: @escaping Completion,
-    stubBehavior: StubBehavior
-  ) -> NetworkDataTask {
-    return performStubRequest(
-      target,
-      callbackQueue: callbackQueue,
-      completion: completion,
-      stubBehavior: stubBehavior
-    )
-  }
-
-  // MARK: - Internal
-
-  /// Propagated as callback queue. If nil - the main queue will be used.
-  let callbackQueue: DispatchQueue?
-
-  /// SessionManager for Rest API request
-    let sessionManager: Alamofire.Session
-}
+  
 
 func safeAsync(queue: DispatchQueue?, closure: @escaping () -> Void) {
   switch queue {
@@ -366,16 +265,9 @@ extension NetworkProvider {
       if let target = target as? UploadTargetType,
         case .multipartForm(let constructingBody) = target.uploadType
       {
-        request = requestSerializer.multipartFormRequest(
-          withMethod: target.method.rawValue,
-          urlString: fullUrlString,
-          parameters: mergedParams,
-          constructingBodyWith: { data in
-            let updateData = MultipartformData(data: data)
-            constructingBody(updateData)
-          },
-          error: &serializationError
-        )
+        target.fullRequestURL
+        request = URLRequest
+        AF.request(<#T##convertible: URLConvertible##URLConvertible#>, method: <#T##HTTPMethod#>, parameters: <#T##Encodable?#>, encoder: <#T##ParameterEncoder#>, headers: <#T##HTTPHeaders?#>, interceptor: <#T##RequestInterceptor?#>, requestModifier: <#T##Session.RequestModifier?##Session.RequestModifier?##(inout URLRequest) throws -> Void#>)
       }
       else {
         sessionManager.request(fullUrlString, method: Alamofire.HTTPMethod(rawValue: target.method.rawValue), parameters: mergedParams, encoder: configuration.requestParamaterEncodeType, headers: <#T##HTTPHeaders?#>, interceptor: <#T##RequestInterceptor?#>, requestModifier: <#T##Session.RequestModifier?##Session.RequestModifier?##(inout URLRequest) throws -> Void#>)
@@ -429,30 +321,6 @@ extension NetworkProvider {
     return request(ipURL, originHost: host, dnsResult: dnsResult)
   }
 
-  private func checkShouldUseHTTPDNS(target: TargetType) -> Bool {
-    if let target = target as? DataTargetType {
-      let useHTTPDNS: Bool
-      switch configuration.stub {
-      case .delayed, .immediate:
-        if target.sampleResponse != nil {
-          useHTTPDNS = false
-        } else {
-          useHTTPDNS = configuration.useHTTPDNS
-        }
-      case .never:
-        useHTTPDNS = configuration.useHTTPDNS
-      }
-      return useHTTPDNS
-    } else if let target = target as? DownloadTargetType {
-      if let scheme = target.resource.url.scheme, scheme != "https" {
-        return configuration.useHTTPDNS
-      } else {
-        return false
-      }
-    } else {
-      return configuration.useHTTPDNS
-    }
-  }
 }
 
 
@@ -476,7 +344,6 @@ extension NetworkProvider {
       let data = (responseObject ?? nil) as? Data
       if let originHost = originHost, error != nil {
         HTTPDNS.setDomainCacheFailed(originHost)
-        CronetManager.updateHostResolverRule(host: originHost, ip: nil)
       }
       let result = convertResponseToResult(
         httpURLResponse,
@@ -526,11 +393,12 @@ extension NetworkProvider {
 
 // MARK: - DataTargetType
 
-extension QuicksilverProvider {
+extension NetworkProvider {
   private func af_dataTask(
     with request: URLRequest,
     completionHandler: @escaping (URLResponse?, Any?, Error?) -> Void
   ) -> URLSessionDataTask {
+    sessionManager.request(<#T##convertible: URLConvertible##URLConvertible#>)
     return sessionManager.dataTask(
       with: request,
       uploadProgress: nil,
@@ -635,7 +503,7 @@ private func convertResponseToResult(
   data: Data?,
   error: Error?,
   with target: TargetType
-) -> Result<Response, QuicksilverError> {
+) -> Result<Response, NetError> {
   if let response = response, error == nil {
     let customResponse = Response(
       statusCode: response.statusCode,
@@ -646,14 +514,14 @@ private func convertResponseToResult(
     if target.validation.statusCodes.contains(response.statusCode) {
       return .success(customResponse)
     } else {
-      let error = QuicksilverError.statusCode(customResponse)
+      let error = NetError.statusCode(customResponse)
       return .failure(error)
     }
   } else {
     let statusCode = response?.statusCode ?? 400  // client error with the case about response is nil
     let customResponse = Response(
       statusCode: statusCode, data: data ?? Data(), request: request, response: response)
-    let error = QuicksilverError.underlying(
+    let error = NetError.underlying(
       error ?? NSError(
         domain: NSURLErrorDomain,
         code: NSURLErrorUnknown,

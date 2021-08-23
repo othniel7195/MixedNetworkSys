@@ -20,9 +20,6 @@
   },
   "source_files": "MixedNetworkSys/Classes/**/*",
   "dependencies": {
-    "OHHTTPStubs/Swift": [
-
-    ],
     "Alamofire": [
 
     ]

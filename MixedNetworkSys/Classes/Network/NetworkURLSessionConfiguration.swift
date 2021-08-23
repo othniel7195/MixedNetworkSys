@@ -18,8 +18,6 @@ public struct NetworkURLSessionConfiguration {
 
     let requestParamaterEncodeType: ParameterEncoding
 
-  let stub: StubBehavior
-
   public let urlSessionConfiguration: URLSessionConfiguration
 
   /// 初始化
@@ -30,17 +28,14 @@ public struct NetworkURLSessionConfiguration {
   /// - Parameter stub: 用于测试的 StubBehavior。默认是 never
   public init(
     useHTTPDNS: Bool = true,
-    useCronet: Bool = false,
     httpsCertificateLocalVerify: Bool = false,
     certificatesBundle: Bundle? = nil,
-    requestParamaterEncodeType: ParameterEncoding = JSONEncoding.default,
-    stub: StubBehavior = .never
+    requestParamaterEncodeType: ParameterEncoding = JSONEncoding.default
   ) {
     self.useHTTPDNS = useHTTPDNS
     self.httpsCertificateLocalVerify = httpsCertificateLocalVerify
     self.certificatesBundle = certificatesBundle
     self.requestParamaterEncodeType = requestParamaterEncodeType
-    self.stub = stub
     self.urlSessionConfiguration = .default
   }
 }

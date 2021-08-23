@@ -13,9 +13,10 @@ public final class Response: CustomDebugStringConvertible, Equatable {
   public let request: URLRequest?
   public let response: HTTPURLResponse?
   
-  public init(statusCode: Int, data: Data, request: URLRequest? = nil, response: HTTPURLResponse? = nil) {
-    self.statusCode = statusCode
-    self.data = data
+  public init(statusCode: Int?, data: Data?, request: URLRequest? = nil, response: HTTPURLResponse? = nil) {
+    //400 == client error with the case about response is nil
+    self.statusCode = statusCode ?? 400
+    self.data = data ?? Data()
     self.request = request
     self.response = response
   }

@@ -28,7 +28,7 @@ public final class NetworkLoggerPlugin: PluginType {
     self.responseDataFormatter = responseDataFormatter
   }
   
-  public func willSend(_ request: URLRequest, target: TargetType) {
+  public func willSend(_ request: URLRequest, target: TargetType?) {
     if cURL {
       output(request.cURLRepresentation())
     } else {
