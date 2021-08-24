@@ -30,18 +30,16 @@ func safeAsync(queue: DispatchQueue?, closure: @escaping () -> Void) {
   }
 }
 
-open class NetworkProvider {
+public class NetworkProvider {
     
-    public let configuration: NetworkURLSessionConfiguration
-    public let plugins: [PluginType]
-    
-    let callbackQueue: DispatchQueue
-    let sessionManager: Session
-    var headers: HTTPHeaders
-    var targetType: TargetType
+    private let configuration: NetworkURLSessionConfiguration
+    private let plugins: [PluginType]
+    private let callbackQueue: DispatchQueue
+    private var sessionManager: Session?
+    private var headers: HTTPHeaders?
     
     deinit {
-      sessionManager.cancelAllRequests()
+      sessionManager?.cancelAllRequests()
     }
     
     public init(
@@ -50,22 +48,25 @@ open class NetworkProvider {
         hosts: [String],
         callbackQueue: DispatchQueue? = nil
     ) {
+        
         self.configuration = configuration
         self.plugins = plugins
         self.callbackQueue = callbackQueue ?? DispatchQueue.main
-        
         let servertrustManager = certificateVerification(hosts: hosts)
         let requestInterceptor = NetRequestInterceptor(plugins)
+        
+        defaultHeaders()
+
         sessionManager = Session(configuration: configuration.urlSessionConfiguration, interceptor: requestInterceptor, serverTrustManager: servertrustManager)
     }
     
     public func request(_ targetType: DataTargetType,
                         callbackQueue: DispatchQueue? = .none,
                         completion: @escaping Completion) {
-        defaultHeaders()
+        
         handleExtraHeaders(targetType.headers)
         let dnsResult = handleDNS(targetType)
-        sessionManager.request(dnsResult.0,
+        sessionManager?.request(dnsResult.0,
                    method: targetType.method,
                    parameters: mergedParam(targetType),
                    encoding: configuration.requestParamaterEncodeType,
@@ -76,26 +77,8 @@ open class NetworkProvider {
         .validate(statusCode: targetType.validation.statusCodes)
         .responseData { [weak self] res in
             guard let self = self else { return }
-            if let originHost = dnsResult.1, res.error != nil {
-                HTTPDNS.setDomainCacheFailed(originHost)
-            }
-            let response = Response(statusCode: res.response?.statusCode, data: res.data, request: res.request, response: res.response)
-            var reponseResult: Result<Response, NetError>
-            switch res.result {
-            case .success:
-                reponseResult = .success(response)
-            case .failure(let error):
-                reponseResult = .failure(NetError.underlying(error, response))
-            }
-            
-            self.plugins.forEach { $0.didReceive(reponseResult, target: targetType) }
-            
-            safeAsync(queue: (callbackQueue ?? self.callbackQueue), closure: {
-                let processedResult = self.plugins.reduce(reponseResult) {
-                    $1.process($0, target: targetType)
-                }
-                completion(processedResult)
-            })
+            self.removeDNS(dnsResult.1, error: res.error)
+            self.responseCompletionHandler(targetType, data: res.data, request: res.request, response: res.response, result: res.result, callbackQueue: callbackQueue, completion: completion)
         }
     }
     
@@ -103,12 +86,58 @@ open class NetworkProvider {
                          callbackQueue: DispatchQueue? = .none,
                          progress: ProgressBlock?,
                          completion: @escaping Completion) {
+        
+        let progressClusre: (Progress) -> Void = { _progress in
+          let sendProgress: () -> Void = {
+            progress?(_progress)
+          }
+          safeAsync(queue: callbackQueue) {
+            sendProgress()
+          }
+        }
+        
         if let resumeData = targetType.resource.resumeData {
-            sessionManager.download(resumingWith: resumeData, to: targetType.downloadDestination)
-                .responseData { res in
+            sessionManager?.download(resumingWith: resumeData, to: targetType.downloadDestination)
+                .downloadProgress(closure: { progress in
+                    progressClusre(progress)
+                }).validate(statusCode: targetType.validation.statusCodes)
+                .responseData { [weak self] res in
+                    guard let self = self else { return }
                     let data = res.response?.url?.path.data(using: .utf8)
-                    
+                    self.responseCompletionHandler(targetType,
+                                                   data: data,
+                                                   request: res.request,
+                                                   response: res.response,
+                                                   result: res.result,
+                                                   callbackQueue: callbackQueue,
+                                                   completion: completion)
             }
+        } else {
+            handleExtraHeaders(targetType.headers)
+            let dnsResult = handleDNS(targetType)
+            sessionManager?.download(dnsResult.0,
+                                     method: targetType.method,
+                                     parameters: mergedParam(targetType),
+                                     encoding: configuration.requestParamaterEncodeType,
+                                     headers: headers,
+                                     requestModifier: { [weak self] urlRequest in
+                                        guard let self = self else { return }
+                                        urlRequest = self.preparedRequest(urlRequest, target: targetType)
+                
+                                     }, to: targetType.downloadDestination).downloadProgress(closure: { progress in
+                                        progressClusre(progress)
+                                     }).validate(statusCode: targetType.validation.statusCodes)
+                .responseData(completionHandler: { [weak self] res in
+                    guard let self = self else { return }
+                    let data = res.response?.url?.path.data(using: .utf8)
+                    self.responseCompletionHandler(targetType,
+                                                   data: data,
+                                                   request: res.request,
+                                                   response: res.response,
+                                                   result: res.result,
+                                                   callbackQueue: callbackQueue,
+                                                   completion: completion)
+                })
         }
         
     }
@@ -137,13 +166,46 @@ extension NetworkProvider {
     private func certificateVerification(hosts: [String]) ->  NetServerTrustManager? {
         if configuration.httpsCertificateLocalVerify == true, let bundle = configuration.certificatesBundle {
             let policy = NetServerTrustEvaluating(certificates: bundle.af.certificates)
-            var evaluators: [String: ServerTrustEvaluating]
+            var evaluators: [String: ServerTrustEvaluating] =  [String: ServerTrustEvaluating]()
             hosts.forEach { str in
                 evaluators[str] = policy
             }
             return NetServerTrustManager(evaluators: evaluators)
         }
         return nil
+    }
+    
+    private func removeDNS(_ originHost: String?, error: Error?) {
+        if let originHost = originHost, error != nil {
+            HTTPDNS.setDomainCacheFailed(originHost)
+        }
+    }
+    
+    private func responseCompletionHandler(_ target: TargetType,
+                                             data: Data?,
+                                             request: URLRequest?,
+                                             response: HTTPURLResponse?,
+                                             result: Result<Data, AFError>,
+                                             callbackQueue: DispatchQueue?,
+                                             completion: @escaping Completion) {
+        let response = Response(statusCode: response?.statusCode, data: data, request: request, response: response)
+        var reponseResult: Result<Response, NetError>
+        switch result {
+        case .success:
+            reponseResult = .success(response)
+        case .failure(let error):
+            reponseResult = .failure(NetError.underlying(error, response))
+        }
+        
+        plugins.forEach { $0.didReceive(reponseResult, target: target) }
+        
+        safeAsync(queue: (callbackQueue ?? self.callbackQueue), closure: {
+            let processedResult = self.plugins.reduce(reponseResult) {
+                $1.process($0, target: target)
+            }
+            completion(processedResult)
+        })
+        
     }
 }
 
@@ -161,12 +223,12 @@ extension NetworkProvider {
             return
         }
         headers.forEach { (k, v) in
-            self.headers.add(name: k, value: v)
+            self.headers?.add(name: k, value: v)
         }
     }
     
     private func handleHost(_ originHost: String) {
-        headers.add(name: "Host", value: originHost)
+        headers?.add(name: "Host", value: originHost)
     }
     
     private func checkShouldUseHTTPDNS(target: TargetType) -> Bool {
