@@ -64,15 +64,23 @@ public class NetworkProvider {
                         callbackQueue: DispatchQueue? = .none,
                         completion: @escaping Completion) {
         
-        handleExtraHeaders(targetType.headers)
-        let dnsResult = handleDNS(targetType)
+        
+        
+        let dataRequest: DataRequest? = getTargetRequest(targetType)
+        if let urlRequest = dataRequest?.request {
+            preparedRequest(urlRequest, target: targetType)
+        }
+        
+        
         sessionManager?.request(dnsResult.0,
                    method: targetType.method,
                    parameters: mergedParam(targetType),
                    encoding: configuration.requestParamaterEncodeType,
-                   headers: headers) { [weak self] urlRequest in
+                   headers: headers) { [weak self]  urlRequest in
             guard let self = self else { return }
+            urlRequest.timeoutInterval = targetType.timeoutInterval ?? 0
             urlRequest = self.preparedRequest(urlRequest, target: targetType)
+            
         }
         .validate(statusCode: targetType.validation.statusCodes)
         .responseData { [weak self] res in
@@ -142,10 +150,87 @@ public class NetworkProvider {
         
     }
     
+    public func upload(_ targetType: UploadTargetType,
+                       callbackQueue: DispatchQueue? = .none,
+                       progress: ProgressBlock?,
+                       completion: @escaping Completion) {
+        
+
+    }
+    
 }
 
 
+
 extension NetworkProvider {
+    
+    
+    private func getTargetRequest<T: Request>(_ targetType: TargetType) -> T? {
+        
+        handleExtraHeaders(targetType.headers)
+        let dnsResult = handleDNS(targetType)
+        let mergedParams = mergedParam(targetType)
+        let method = targetType.method
+        let timeout = targetType.timeoutInterval ?? 0
+        var request: T?
+        
+        if targetType is DataTargetType {
+            request = sessionManager?.request(dnsResult.0,
+                       method: method,
+                       parameters: mergedParams,
+                       encoding: configuration.requestParamaterEncodeType,
+                       headers: headers,
+                       requestModifier: { [weak self] urlRequest in
+                        guard let self = self else { return }
+                        urlRequest.timeoutInterval = timeout
+                        urlRequest = self.preparedRequest(urlRequest, target: targetType)
+                       }) as? T
+            
+        } else if let downloadType = targetType as? DownloadTargetType {
+            if let resumeData = downloadType.resource.resumeData {
+                request = sessionManager?.download(resumingWith: resumeData, to: downloadType.downloadDestination) as? T
+            } else {
+                request = sessionManager?.download(dnsResult.0,
+                                         method: method,
+                                         parameters: mergedParams,
+                                         encoding: configuration.requestParamaterEncodeType,
+                                         headers: headers,
+                                         requestModifier: { urlRequest in
+                                            urlRequest.timeoutInterval = timeout
+                                         }) as? T
+            }
+        } else if let uploadTargetType = targetType as? UploadTargetType {
+            switch uploadTargetType.uploadType {
+            case .data(let data):
+                request = sessionManager?.upload(data,
+                                                 to: dnsResult.0,
+                                                 method: method,
+                                                 headers: headers,
+                                                 requestModifier: { urlRequest in
+                    urlRequest.timeoutInterval = timeout
+                }) as? T
+            case .file(let fileURL):
+                request = sessionManager?.upload(fileURL,
+                                                 to: dnsResult.0,
+                                                 method: method,
+                                                 headers: headers,
+                                                 requestModifier: { urlRequest in
+                    urlRequest.timeoutInterval = timeout
+                }) as? T
+            case .multipartForm(let constructingBody):
+                request = sessionManager?.upload(multipartFormData: constructingBody,
+                                                 to: dnsResult.0,
+                                                 method: method,
+                                                 headers: headers,
+                                                 requestModifier: { urlRequest in
+                    urlRequest.timeoutInterval = timeout
+                }) as? T
+            
+            }
+        }
+        
+        return request 
+    }
     
     private func mergedParam(_ target: TargetType)  -> [String: Any] {
         var mergedParams: [String: Any] = target.parameters ?? [String: Any]()
