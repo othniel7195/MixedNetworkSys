@@ -10,17 +10,12 @@ import Foundation
 public protocol DataTargetType: TargetType {
   var baseURL: URL { get }
   var path: String { get }
-  var sampleResponse: SampleResponseClosure? { get }
 }
 
 extension DataTargetType {
   
   public var validation: ValidationType {
     return .successCodes
-  }
-
-  public var sampleResponse: SampleResponseClosure? {
-    return nil
   }
 
   public var parameters: [String: Any]? {

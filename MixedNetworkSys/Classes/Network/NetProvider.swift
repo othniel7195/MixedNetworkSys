@@ -7,9 +7,6 @@
 
 import Foundation
 
-/// 网络能力提供者
-///
-/// 它包装多个 QuicksilverProvider，以在发起网络请求错误（underlying）时，自动基于某个策略使用备用的 Provider 重新发起请求
 public final class NetProvider {
   /// 降级策略
   public enum FallbackStrategy {
@@ -24,16 +21,15 @@ public final class NetProvider {
   }
 
   private let fallbackStrategy: FallbackStrategy
-  private let normalStage: QuicksilverProvider
-  private let dnsStage: QuicksilverProvider
-  private let cdnStage: QuicksilverProvider
+  private let normalStage: NetworkProvider
+  private let dnsStage: NetworkProvider
+  private let cdnStage: NetworkProvider
   private let cdnHostOfOriginalHost: ((String) -> String?)?
 
-  /// 初始化
-  /// - Parameter plugins: 插件列表。例如 Log 插件、权限验证插件、网络活动指示器插件
-  /// - Parameter callbackQueue: 回调队列。默认为 main
-  /// - Parameter fallbackStrategy: 降级策略。默认为 default
-  /// - Parameter cdnHostOfOriginalHost: 原始 Host 到 CDN Host 的映射
+  ///plugins: 插件列表。例如 Log 插件、权限验证插件、网络活动指示器插件
+  ///callbackQueue: 回调队列。默认为 main
+  ///fallbackStrategy: 降级策略。默认为 default
+  ///cdnHostOfOriginalHost: 原始 Host 到 CDN Host 的映射
   public init(
     plugins: [PluginType] = [],
     callbackQueue: DispatchQueue = .main,
@@ -41,18 +37,20 @@ public final class NetProvider {
     cdnHostOfOriginalHost: ((String) -> String?)? = nil
   ) {
     self.fallbackStrategy = fallbackStrategy
+    
     self.normalStage = .init(
-      configuration: .init(
-        useHTTPDNS: false,
-        useCronet: false
+        configuration: .init(
+        useHTTPDNS: false
       ),
       plugins: plugins,
       callbackQueue: callbackQueue
     )
+    
+    
+    
     self.dnsStage = .init(
       configuration: .init(
         useHTTPDNS: true,
-        useCronet: true
       ),
       plugins: plugins,
       callbackQueue: callbackQueue
@@ -60,7 +58,6 @@ public final class NetProvider {
     self.cdnStage = .init(
       configuration: .init(
         useHTTPDNS: true,
-        useCronet: true
       ),
       plugins: plugins,
       callbackQueue: callbackQueue
