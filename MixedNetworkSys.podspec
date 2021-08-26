@@ -24,11 +24,11 @@ TODO: Add long description of the pod here.
   s.homepage         = 'https://github.com/wjszf/MixedNetworkSys'
   # s.screenshots     = 'www.example.com/screenshots_1', 'www.example.com/screenshots_2'
   s.license          = { :type => 'MIT', :file => 'LICENSE' }
-  s.author           = { 'wjszf' => '478043385@qq.com' }
+  s.author           = { 'wjszf' => 'zhaofeng7195@yeah.net' }
   s.source           = { :git => 'https://github.com/wjszf/MixedNetworkSys.git', :tag => s.version.to_s }
   # s.social_media_url = 'https://twitter.com/<TWITTER_USERNAME>'
 
-  s.ios.deployment_target = '11.0'
+  s.ios.deployment_target = '10.0'
 
   s.source_files = 'MixedNetworkSys/Classes/**/*'
   

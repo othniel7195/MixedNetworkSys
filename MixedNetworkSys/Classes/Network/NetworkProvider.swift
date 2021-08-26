@@ -2,7 +2,7 @@
 //  NetworkProvider2.swift
 //  MixedNetworkSys
 //
-//  Created by jimmy on 2021/8/23.
+//  Created by jimmy on 08/25/2021.
 //
 
 import Foundation
@@ -14,20 +14,20 @@ public typealias ProgressBlock = (Progress) -> Void
 
 
 func safeAsync(queue: DispatchQueue?, closure: @escaping () -> Void) {
-  switch queue {
-  case .none:
-    if Thread.isMainThread {
-      closure()
-    } else {
-      DispatchQueue.main.async {
-        closure()
-      }
+    switch queue {
+    case .none:
+        if Thread.isMainThread {
+            closure()
+        } else {
+            DispatchQueue.main.async {
+                closure()
+            }
+        }
+    case .some(let runQueue):
+        runQueue.async {
+            closure()
+        }
     }
-  case .some(let runQueue):
-    runQueue.async {
-      closure()
-    }
-  }
 }
 
 public class NetworkProvider {
@@ -39,7 +39,7 @@ public class NetworkProvider {
     private var headers: HTTPHeaders?
     
     deinit {
-      sessionManager?.cancelAllRequests()
+        sessionManager?.cancelAllRequests()
     }
     
     public init(
@@ -56,7 +56,7 @@ public class NetworkProvider {
         let requestInterceptor = NetRequestInterceptor(plugins)
         
         defaultHeaders()
-
+        
         sessionManager = Session(configuration: configuration.urlSessionConfiguration, interceptor: requestInterceptor, serverTrustManager: servertrustManager)
     }
     
@@ -74,16 +74,16 @@ public class NetworkProvider {
         dataRequest
             .validate(statusCode: targetType.validation.statusCodes)
             .responseData{ [weak self] res in
-            guard let self = self else { return }
-            self.removeDNS(requestResult.1, error: res.error)
-            self.responseCompletionHandler(targetType,
-                                           data: res.data,
-                                           request: res.request,
-                                           response: res.response,
-                                           result: res.result,
-                                           callbackQueue: callbackQueue,
-                                           completion: completion)
-        }
+                guard let self = self else { return }
+                self.removeDNS(requestResult.1, error: res.error)
+                self.responseCompletionHandler(targetType,
+                                               data: res.data,
+                                               request: res.request,
+                                               response: res.response,
+                                               result: res.result,
+                                               callbackQueue: callbackQueue,
+                                               completion: completion)
+            }
     }
     
     public func download(_ targetType: DownloadTargetType,
@@ -99,12 +99,12 @@ public class NetworkProvider {
         }
         
         let progressClusre: (Progress) -> Void = { _progress in
-          let sendProgress: () -> Void = {
-            progress?(_progress)
-          }
-          safeAsync(queue: callbackQueue) {
-            sendProgress()
-          }
+            let sendProgress: () -> Void = {
+                progress?(_progress)
+            }
+            safeAsync(queue: callbackQueue) {
+                sendProgress()
+            }
         }
         
         downloadRequest
@@ -138,12 +138,12 @@ public class NetworkProvider {
             return
         }
         let progressClusre: ((Progress) -> Void) = { _progress in
-          let sendProgress: () -> Void = {
-            progress?(_progress)
-          }
-          safeAsync(queue: callbackQueue) {
-            sendProgress()
-          }
+            let sendProgress: () -> Void = {
+                progress?(_progress)
+            }
+            safeAsync(queue: callbackQueue) {
+                sendProgress()
+            }
         }
         uploadRequest
             .uploadProgress(closure: progressClusre)
@@ -178,30 +178,30 @@ extension NetworkProvider {
         
         if targetType is DataTargetType {
             request = sessionManager?.request(dnsResult.0,
-                       method: method,
-                       parameters: mergedParams,
-                       encoding: configuration.requestParamaterEncodeType,
-                       headers: headers,
-                       requestModifier: { [weak self] urlRequest in
-                        guard let self = self else { return }
-                        urlRequest.timeoutInterval = timeout
-                        urlRequest = self.preparedRequest(urlRequest, target: targetType)
-                       }) as? T
+                                              method: method,
+                                              parameters: mergedParams,
+                                              encoding: configuration.requestParamaterEncodeType,
+                                              headers: headers,
+                                              requestModifier: { [weak self] urlRequest in
+                                                guard let self = self else { return }
+                                                urlRequest.timeoutInterval = timeout
+                                                urlRequest = self.preparedRequest(urlRequest, target: targetType)
+                                              }) as? T
             
         } else if let downloadType = targetType as? DownloadTargetType {
             if let resumeData = downloadType.resource.resumeData {
                 request = sessionManager?.download(resumingWith: resumeData, to: downloadType.downloadDestination) as? T
             } else {
                 request = sessionManager?.download(dnsResult.0,
-                                         method: method,
-                                         parameters: mergedParams,
-                                         encoding: configuration.requestParamaterEncodeType,
-                                         headers: headers,
-                                         requestModifier: { [weak self] urlRequest in
-                                            guard let self = self else { return }
-                                            urlRequest.timeoutInterval = timeout
-                                            urlRequest = self.preparedRequest(urlRequest, target: targetType)
-                                         }) as? T
+                                                   method: method,
+                                                   parameters: mergedParams,
+                                                   encoding: configuration.requestParamaterEncodeType,
+                                                   headers: headers,
+                                                   requestModifier: { [weak self] urlRequest in
+                                                    guard let self = self else { return }
+                                                    urlRequest.timeoutInterval = timeout
+                                                    urlRequest = self.preparedRequest(urlRequest, target: targetType)
+                                                   }) as? T
             }
         } else if let uploadTargetType = targetType as? UploadTargetType {
             switch uploadTargetType.uploadType {
@@ -214,7 +214,7 @@ extension NetworkProvider {
                                                     guard let self = self else { return }
                                                     urlRequest.timeoutInterval = timeout
                                                     urlRequest = self.preparedRequest(urlRequest, target: targetType)
-                }) as? T
+                                                 }) as? T
             case .file(let fileURL):
                 request = sessionManager?.upload(fileURL,
                                                  to: dnsResult.0,
@@ -224,7 +224,7 @@ extension NetworkProvider {
                                                     guard let self = self else { return }
                                                     urlRequest.timeoutInterval = timeout
                                                     urlRequest = self.preparedRequest(urlRequest, target: targetType)
-                }) as? T
+                                                 }) as? T
             case .multipartForm(let constructingBody):
                 request = sessionManager?.upload(multipartFormData: constructingBody,
                                                  to: dnsResult.0,
@@ -234,8 +234,8 @@ extension NetworkProvider {
                                                     guard let self = self else { return }
                                                     urlRequest.timeoutInterval = timeout
                                                     urlRequest = self.preparedRequest(urlRequest, target: targetType)
-                }) as? T
-            
+                                                 }) as? T
+                
             }
         }
         request?.task?.priority = targetType.priority
@@ -244,8 +244,8 @@ extension NetworkProvider {
     }
     
     private func  buildRequestFailed(targetType: TargetType,
-                               callbackQueue: DispatchQueue?,
-                               completion: @escaping Completion) {
+                                     callbackQueue: DispatchQueue?,
+                                     completion: @escaping Completion) {
         responseCompletionHandler(targetType,
                                   data: nil,
                                   request: nil,
@@ -279,12 +279,12 @@ extension NetworkProvider {
     }
     
     private func responseCompletionHandler(_ target: TargetType,
-                                             data: Data?,
-                                             request: URLRequest?,
-                                             response: HTTPURLResponse?,
-                                             result: Result<Data, AFError>,
-                                             callbackQueue: DispatchQueue?,
-                                             completion: @escaping Completion) {
+                                           data: Data?,
+                                           request: URLRequest?,
+                                           response: HTTPURLResponse?,
+                                           result: Result<Data, AFError>,
+                                           callbackQueue: DispatchQueue?,
+                                           completion: @escaping Completion) {
         let response = Response(statusCode: response?.statusCode, data: data, request: request, response: response)
         var reponseResult: Result<Response, NetError>
         switch result {
@@ -327,11 +327,11 @@ extension NetworkProvider {
     private func mergedParam(_ target: TargetType)  -> [String: Any] {
         var mergedParams: [String: Any] = target.parameters ?? [String: Any]()
         plugins.forEach { plugin in
-          if let extraParameters = plugin.extraParameters {
-            extraParameters.forEach { (key, value) in
-              mergedParams[key] = value
+            if let extraParameters = plugin.extraParameters {
+                extraParameters.forEach { (key, value) in
+                    mergedParams[key] = value
+                }
             }
-          }
         }
         return mergedParams
     }
@@ -342,33 +342,33 @@ extension NetworkProvider {
     
     private func checkShouldUseHTTPDNS(target: TargetType) -> Bool {
         if target is DataTargetType {
-        return configuration.useHTTPDNS
-      } else if let target = target as? DownloadTargetType {
-        if let scheme = target.resource.url.scheme, scheme != "https" {
-          return configuration.useHTTPDNS
+            return configuration.useHTTPDNS
+        } else if let target = target as? DownloadTargetType {
+            if let scheme = target.resource.url.scheme, scheme != "https" {
+                return configuration.useHTTPDNS
+            } else {
+                return false
+            }
         } else {
-          return false
+            return configuration.useHTTPDNS
         }
-      } else {
-        return configuration.useHTTPDNS
-      }
     }
     
     private func handleDNS(_ target: TargetType) -> (URL, String?) {
         let url = target.fullRequestURL
-
+        
         guard checkShouldUseHTTPDNS(target: target) else {
-          return (url, nil)
+            return (url, nil)
         }
         guard let host = url.host else {
-          return (url, nil)
+            return (url, nil)
         }
         guard let dnsResult = HTTPDNS.query(host) else {
-          return (url, nil)
+            return (url, nil)
         }
-
+        
         guard let ipURL = url.network_replacingHost(host, with: dnsResult.ipAddress) else {
-          return (url, nil)
+            return (url, nil)
         }
         handleHost(host)
         if dnsResult.fromCached {
