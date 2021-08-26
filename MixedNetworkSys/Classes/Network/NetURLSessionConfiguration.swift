@@ -30,7 +30,7 @@ public struct NetworkURLSessionConfiguration {
         useHTTPDNS: Bool = true,
         httpsCertificateLocalVerify: Bool = false,
         certificatesBundle: Bundle? = nil,
-        requestParamaterEncodeType: ParameterEncoding = JSONEncoding.default
+        requestParamaterEncodeType: ParameterEncoding = NetRequestParameterEncoding.default
     ) {
         self.useHTTPDNS = useHTTPDNS
         self.httpsCertificateLocalVerify = httpsCertificateLocalVerify
