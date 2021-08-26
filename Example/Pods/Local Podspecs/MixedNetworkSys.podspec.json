@@ -9,14 +9,14 @@
     "file": "LICENSE"
   },
   "authors": {
-    "wjszf": "478043385@qq.com"
+    "jimmy": "zhaofeng7195@yeah.net"
   },
   "source": {
     "git": "https://github.com/wjszf/MixedNetworkSys.git",
     "tag": "0.1.0"
   },
   "platforms": {
-    "ios": "11.0"
+    "ios": "10.0"
   },
   "source_files": "MixedNetworkSys/Classes/**/*",
   "dependencies": {
