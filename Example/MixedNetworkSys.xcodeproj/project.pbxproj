@@ -15,6 +15,9 @@
 		607FACE01AFB9204008FA782 /* LaunchScreen.xib in Resources */ = {isa = PBXBuildFile; fileRef = 607FACDE1AFB9204008FA782 /* LaunchScreen.xib */; };
 		607FACEC1AFB9204008FA782 /* Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 607FACEB1AFB9204008FA782 /* Tests.swift */; };
 		8D0E375D3845D94A2BA4068B /* Pods_MixedNetworkSys_Example.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9C92B25C2A1AC4A287601739 /* Pods_MixedNetworkSys_Example.framework */; };
+		BFAF3CEE26D76FE700D9FADF /* NetRequestTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFAF3CED26D76FE700D9FADF /* NetRequestTests.swift */; };
+		BFAF3CF026D77BD100D9FADF /* AccountTestApi.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFAF3CEF26D77BD100D9FADF /* AccountTestApi.swift */; };
+		BFAF3CF126D77BD100D9FADF /* AccountTestApi.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFAF3CEF26D77BD100D9FADF /* AccountTestApi.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -44,6 +47,8 @@
 		9C92B25C2A1AC4A287601739 /* Pods_MixedNetworkSys_Example.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_MixedNetworkSys_Example.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		B615F2631C29488CCBEA82EE /* Pods-MixedNetworkSys_Tests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MixedNetworkSys_Tests.release.xcconfig"; path = "Target Support Files/Pods-MixedNetworkSys_Tests/Pods-MixedNetworkSys_Tests.release.xcconfig"; sourceTree = "<group>"; };
 		BF745D011CCF9D9A58F8DE3D /* README.md */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = net.daringfireball.markdown; name = README.md; path = ../README.md; sourceTree = "<group>"; };
+		BFAF3CED26D76FE700D9FADF /* NetRequestTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetRequestTests.swift; sourceTree = "<group>"; };
+		BFAF3CEF26D77BD100D9FADF /* AccountTestApi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountTestApi.swift; sourceTree = "<group>"; };
 		D815D8F8B279103D5CF4E091 /* MixedNetworkSys.podspec */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; name = MixedNetworkSys.podspec; path = ../MixedNetworkSys.podspec; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.ruby; };
 		DA86F4B35C676BC54FD45D94 /* Pods-MixedNetworkSys_Tests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MixedNetworkSys_Tests.debug.xcconfig"; path = "Target Support Files/Pods-MixedNetworkSys_Tests/Pods-MixedNetworkSys_Tests.debug.xcconfig"; sourceTree = "<group>"; };
 		F0841D29232E9E372F10FA8F /* Pods_MixedNetworkSys_Tests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_MixedNetworkSys_Tests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -119,6 +124,7 @@
 				607FACDC1AFB9204008FA782 /* Images.xcassets */,
 				607FACDE1AFB9204008FA782 /* LaunchScreen.xib */,
 				607FACD31AFB9204008FA782 /* Supporting Files */,
+				BFAF3CEF26D77BD100D9FADF /* AccountTestApi.swift */,
 			);
 			name = "Example for MixedNetworkSys";
 			path = MixedNetworkSys;
@@ -136,6 +142,7 @@
 			isa = PBXGroup;
 			children = (
 				607FACEB1AFB9204008FA782 /* Tests.swift */,
+				BFAF3CED26D76FE700D9FADF /* NetRequestTests.swift */,
 				607FACE91AFB9204008FA782 /* Supporting Files */,
 			);
 			path = Tests;
@@ -353,6 +360,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				607FACD81AFB9204008FA782 /* ViewController.swift in Sources */,
+				BFAF3CF026D77BD100D9FADF /* AccountTestApi.swift in Sources */,
 				607FACD61AFB9204008FA782 /* AppDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -362,6 +370,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				607FACEC1AFB9204008FA782 /* Tests.swift in Sources */,
+				BFAF3CF126D77BD100D9FADF /* AccountTestApi.swift in Sources */,
+				BFAF3CEE26D76FE700D9FADF /* NetRequestTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

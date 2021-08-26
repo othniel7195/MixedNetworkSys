@@ -178,7 +178,7 @@ extension NetworkProvider {
         
         if targetType is DataTargetType {
             request = sessionManager?.request(dnsResult.0,
-                                              method: method,
+                                              method: method.asM,
                                               parameters: mergedParams,
                                               encoding: configuration.requestParamaterEncodeType,
                                               headers: headers,
@@ -193,7 +193,7 @@ extension NetworkProvider {
                 request = sessionManager?.download(resumingWith: resumeData, to: downloadType.downloadDestination) as? T
             } else {
                 request = sessionManager?.download(dnsResult.0,
-                                                   method: method,
+                                                   method: method.asM,
                                                    parameters: mergedParams,
                                                    encoding: configuration.requestParamaterEncodeType,
                                                    headers: headers,
@@ -208,7 +208,7 @@ extension NetworkProvider {
             case .data(let data):
                 request = sessionManager?.upload(data,
                                                  to: dnsResult.0,
-                                                 method: method,
+                                                 method: method.asM,
                                                  headers: headers,
                                                  requestModifier: { [weak self] urlRequest in
                                                     guard let self = self else { return }
@@ -218,7 +218,7 @@ extension NetworkProvider {
             case .file(let fileURL):
                 request = sessionManager?.upload(fileURL,
                                                  to: dnsResult.0,
-                                                 method: method,
+                                                 method: method.asM,
                                                  headers: headers,
                                                  requestModifier: { [weak self] urlRequest in
                                                     guard let self = self else { return }
@@ -228,7 +228,7 @@ extension NetworkProvider {
             case .multipartForm(let constructingBody):
                 request = sessionManager?.upload(multipartFormData: constructingBody,
                                                  to: dnsResult.0,
-                                                 method: method,
+                                                 method: method.asM,
                                                  headers: headers,
                                                  requestModifier: { [weak self] urlRequest in
                                                     guard let self = self else { return }
