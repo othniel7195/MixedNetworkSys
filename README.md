@@ -22,7 +22,7 @@ pod 'MixedNetworkSys'
 
 ## Author
 
-wjszf, 478043385@qq.com
+jimmy, zhaofeng7195@yeah.net
 
 ## License
 
