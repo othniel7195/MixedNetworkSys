@@ -1,9 +1,8 @@
 # MixedNetworkSys
 
-[![CI Status](https://img.shields.io/travis/wjszf/MixedNetworkSys.svg?style=flat)](https://travis-ci.org/wjszf/MixedNetworkSys)
-[![Version](https://img.shields.io/cocoapods/v/MixedNetworkSys.svg?style=flat)](https://cocoapods.org/pods/MixedNetworkSys)
-[![License](https://img.shields.io/cocoapods/l/MixedNetworkSys.svg?style=flat)](https://cocoapods.org/pods/MixedNetworkSys)
-[![Platform](https://img.shields.io/cocoapods/p/MixedNetworkSys.svg?style=flat)](https://cocoapods.org/pods/MixedNetworkSys)
+## structure chart
+
+![1](Document/1.png)
 
 ## Example
 
