@@ -156,6 +156,7 @@ struct ApiTestEng {
         return provider
     }
     
+    //"{\"schedule\":{\"opening_time\":[{\"weekday\":[1,2,3,4,5,6,7],\"opening_hours\":[{\"start_time\":28800,\"end_time\":86399}]}],\"holiday_time\":[]},\"status\":1}"
     func openHours(_ provider: NetworkProvider, compl: @escaping (_ schedule: Schedule?, _ err: Error?) -> Void) {
         provider.request(ApiTest.openHours(id: "")) { result in
             switch result {

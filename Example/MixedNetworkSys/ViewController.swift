@@ -15,16 +15,24 @@ class ViewController: UIViewController {
         super.viewDidLoad()
         
         let provider = ApiTestEng().createProvider()
-        ApiTestEng().openHours(provider) { sdata, err in
-            
+        ApiTestEng().openHours(provider) { data, err in
+            if let err = err {
+                print(err)
+            } else {
+                print(data!)
+            }
+            print("==================")
         }
         
+       
         
         let sdata: Promise<Schedule> = ApiTestEng().openHoursNew(provider)
         sdata.then { data in
-            
-        }.onError { error in
-            
+            print(data)
+            print("~~~~~~~~~~~~~~~~~~~~~")
+        }.onError { err in
+            print(err)
+            print("~~~~~~~~~~~~~~~~~~~~~~")
         }
     }
 
