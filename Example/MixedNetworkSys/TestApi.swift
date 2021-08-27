@@ -8,14 +8,20 @@
 
 import Foundation
 import MixedNetworkSys
+import Then
 
 
-enum ApiTest: DataTargetType {
+enum ApiTest: DataTargetType, AccessTokenAuthorizable {
+ 
     case login
     case openHours(id: String)
     
     var baseURL: URL {
-        return URL(string: "https://sobe-api-dev.shuinfo.com")!
+        return URL(string: "https://sobe-api-test.shuinfo.com")!
+    }
+    
+    var authorizationType: AuthorizationType {
+        return .bearer
     }
     
     var path: String {
@@ -25,7 +31,6 @@ enum ApiTest: DataTargetType {
         case .openHours:
             return "/store/pos/open_hours"
         }
-        
     }
     
     var method: HTTPMethod {
@@ -44,10 +49,8 @@ enum ApiTest: DataTargetType {
                 "mobile": "15000965817",
                 "code": "9876"
             ]
-        case .openHours(let id):
-            return [
-                "id": id
-            ]
+        case .openHours:
+            return nil
         }
     }
 
@@ -63,13 +66,14 @@ enum ApiTest: DataTargetType {
     var headers: [String : String]? {
         switch self {
         case .login:
-            return ["Content-Type": "application/json"]
+            return nil
         case .openHours:
-            return ["Content-Type": "application/json"]
+            return ["channel": "5"]
         }
         
     }
 }
+
 
 
 struct AccountLogin: Codable {
@@ -142,3 +146,58 @@ struct HolidayTime: Codable {
         case opening_hours
     }
 }
+
+
+struct ApiTestEng {
+    
+    func createProvider() -> NetworkProvider {
+        let auth1 = AccessTokenPlugin(tokenClosure: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2NvdW50IjoyNTAwMDksImV4cCI6MTYzMDgzMzIxMSwiaWF0IjoxNjI5OTY5MjExLCJpc3MiOiJodHRwczovL3d3dy5zaHVpbmZvLmNvbSIsInBvcy1hY2NvdW50IjoyNTAwMDksInBvcy1kZXZpY2UiOiIiLCJwb3Mtc3RvcmUiOiI2MGY2NzcxYjgwYmQxNWUyMjZkYzQ0YjciLCJ0ZW5hbnQiOjQwMDAzfQ.Y_YahDeqh3IfPxWrf6-Ek9hgwEJ9wMLp4Lxp4JW3AQE")
+        let provider = NetworkProvider(configuration: .init(useHTTPDNS: false), plugins: [auth1], hosts: ["sobe-api-dev.shuinfo.com"])
+        return provider
+    }
+    
+    func openHours(_ provider: NetworkProvider, compl: @escaping (_ schedule: Schedule?, _ err: Error?) -> Void) {
+        provider.request(ApiTest.openHours(id: "")) { result in
+            switch result {
+            case .success(let response):
+                let string = try? response.mapString()
+                print("schedule data: \(String(describing: string))")
+                
+                let json = try? response.mapJSON()
+                print("schedule data json: \(String(describing: json))")
+                
+                let scheduleData = try? response.map(Schedule.self, atKeyPath: "schedule")
+                print("schedule data: \(String(describing: scheduleData))")
+                compl(scheduleData, nil)
+            case .failure(let error):
+                print("schedule data error: \(error)")
+                compl(nil, error)
+            }
+        }
+    }
+    
+    
+    func openHoursNew<T: Codable>(_ provider: NetworkProvider) -> Promise<T> {
+        return Promise { reslove, reject in
+            provider.request(ApiTest.openHours(id: "")) { result in
+                switch result {
+                case .success(let response):
+                    let string = try? response.mapString()
+                    print("schedule data: \(String(describing: string))")
+                    
+                    let json = try? response.mapJSON()
+                    print("schedule data json: \(String(describing: json))")
+                    
+                    let scheduleData: T = try! response.map(T.self, atKeyPath: "schedule")
+                    print("schedule data: \(String(describing: scheduleData))")
+                    
+                    reslove(scheduleData)
+                case .failure(let error):
+                    print("schedule data error: \(error)")
+                    reject(error)
+                }
+            }
+        }
+    }
+}
+

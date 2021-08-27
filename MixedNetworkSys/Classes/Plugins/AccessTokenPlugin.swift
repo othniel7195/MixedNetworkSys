@@ -18,6 +18,7 @@ public enum AuthorizationType: RawRepresentable {
     
     case none
     case basic
+    case bearer
     case customType(String)
     
     public init?(rawValue: String) {
@@ -27,6 +28,8 @@ public enum AuthorizationType: RawRepresentable {
             switch rawValue {
             case "Basic":
                 self = .basic
+            case "Bearer":
+                self = .bearer
             default:
                 self = .customType(rawValue)
             }
@@ -37,6 +40,8 @@ public enum AuthorizationType: RawRepresentable {
         switch self {
         case .basic:
             return "Basic"
+        case .bearer:
+            return "Bearer"
         case .customType(let value):
             return value
         default:

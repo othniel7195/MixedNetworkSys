@@ -2,13 +2,16 @@ PODS:
   - Alamofire (5.4.3)
   - MixedNetworkSys (0.1.0):
     - Alamofire
+  - thenPromise (5.1.2)
 
 DEPENDENCIES:
   - MixedNetworkSys (from `../`)
+  - thenPromise
 
 SPEC REPOS:
   trunk:
     - Alamofire
+    - thenPromise
 
 EXTERNAL SOURCES:
   MixedNetworkSys:
@@ -17,7 +20,8 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   Alamofire: e447a2774a40c996748296fa2c55112fdbbc42f9
   MixedNetworkSys: 1adff35360b711d8be8e8171484beafdeafb302d
+  thenPromise: c1a319348c6052652b071d8dd4c6db9984860209
 
-PODFILE CHECKSUM: 034b622b46c9d0736880c9123fc96066ad074e41
+PODFILE CHECKSUM: 84d73339ad42efaf408adbcc2cb694221d304e18
 
 COCOAPODS: 1.10.2

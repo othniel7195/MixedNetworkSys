@@ -311,7 +311,7 @@ extension NetworkProvider {
 extension NetworkProvider {
     
     private func defaultHeaders() {
-        let headers = [String: String]()
+        let headers = ["Content-Type": "application/json"]
         self.headers = HTTPHeaders(headers)
     }
     
