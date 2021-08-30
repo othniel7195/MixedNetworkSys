@@ -60,16 +60,17 @@ public class NetworkProvider {
         sessionManager = Session(configuration: configuration.urlSessionConfiguration, interceptor: requestInterceptor, serverTrustManager: servertrustManager)
     }
     
+    @discardableResult
     public func request(_ targetType: DataTargetType,
                         callbackQueue: DispatchQueue? = .none,
-                        completion: @escaping Completion) {
+                        completion: @escaping Completion) -> NetworkDataTask? {
         
         
         
         let requestResult: (DataRequest?, String?) = getTargetRequest(targetType)
         guard let dataRequest =  requestResult.0 else {
             buildRequestFailed(targetType: targetType, callbackQueue: callbackQueue, completion: completion)
-            return
+            return nil
         }
         dataRequest
             .validate(statusCode: targetType.validation.statusCodes)
@@ -84,18 +85,23 @@ public class NetworkProvider {
                                                callbackQueue: callbackQueue,
                                                completion: completion)
             }
+        
+        let task = TaskToken(requestTask: dataRequest)
+        task.resume()
+        return task
     }
     
+    @discardableResult
     public func download(_ targetType: DownloadTargetType,
                          callbackQueue: DispatchQueue? = .none,
                          progress: ProgressBlock?,
-                         completion: @escaping Completion) {
+                         completion: @escaping Completion) -> NetworkDownloadTask? {
         
         
         let requestResult: (DownloadRequest?, String?) = getTargetRequest(targetType)
         guard let downloadRequest = requestResult.0 else {
             buildRequestFailed(targetType: targetType, callbackQueue: callbackQueue, completion: completion)
-            return
+            return nil
         }
         
         let progressClusre: (Progress) -> Void = { _progress in
@@ -124,18 +130,20 @@ public class NetworkProvider {
                                                callbackQueue: callbackQueue,
                                                completion: completion)
             }
+        return TaskToken(requestTask: downloadRequest)
         
     }
     
+    @discardableResult
     public func upload(_ targetType: UploadTargetType,
                        callbackQueue: DispatchQueue? = .none,
                        progress: ProgressBlock?,
-                       completion: @escaping Completion) {
+                       completion: @escaping Completion) -> NetworkUploadTask? {
         
         let requestResult: (UploadRequest?, String?) = getTargetRequest(targetType)
         guard let uploadRequest = requestResult.0 else {
             buildRequestFailed(targetType: targetType, callbackQueue: callbackQueue, completion: completion)
-            return
+            return nil
         }
         let progressClusre: ((Progress) -> Void) = { _progress in
             let sendProgress: () -> Void = {
@@ -159,6 +167,7 @@ public class NetworkProvider {
                                                callbackQueue: callbackQueue,
                                                completion: completion)
             }
+        return TaskToken(requestTask: uploadRequest)
     }
     
 }
