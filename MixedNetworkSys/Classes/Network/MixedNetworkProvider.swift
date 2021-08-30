@@ -55,15 +55,16 @@ public final class MixedNetworkProvider {
 extension MixedNetworkProvider {
     public func request(_ dataTarget: DataTargetType,
                         callbackQueue: DispatchQueue? = nil,
-                        completion: @escaping Completion) {
+                        completion: @escaping Completion) -> NetworkDataTask? {
+        let task = TaskToken()
         switch fallbackStrategy {
         case .default:
-            normalRequest(dataTarget, callbackQueue: callbackQueue) { [weak self] result in
+            normalRequest(dataTarget, callbackQueue: callbackQueue, task: task) { [weak self] result in
                 switch result {
                 case .success(let response):
                     completion(.success(response))
                 case .failure(let error):
-                    self?.dnsRequest(dataTarget, callbackQueue: callbackQueue, error: error) { result in
+                    self?.dnsRequest(dataTarget, callbackQueue: callbackQueue, error: error, task: task) { result in
                         switch result {
                         case .success(let response):
                             completion(.success(response))
@@ -71,38 +72,40 @@ extension MixedNetworkProvider {
                             self?.cdnRequest(dataTarget,
                                              callbackQueue: callbackQueue,
                                              error: error,
+                                             task: task,
                                              completion: completion)
                         }
                     }
                 }
             }
         case .httpDNSFirst:
-            dnsRequest(dataTarget, callbackQueue: callbackQueue, error: nil) { [weak self] result in
+            dnsRequest(dataTarget, callbackQueue: callbackQueue, error: nil, task: task) { [weak self] result in
                 switch result {
                 case .success(let response):
                     completion(.success(response))
                 case .failure(let error):
-                    self?.cdnRequest(dataTarget, callbackQueue: callbackQueue, error: error, completion: { result in
+                    self?.cdnRequest(dataTarget, callbackQueue: callbackQueue, error: error, task: task, completion: { result in
                         switch result {
                         case .success(let response):
                             completion(.success(response))
                         case .failure:
-                            self?.normalRequest(dataTarget, callbackQueue: callbackQueue, completion: completion)
+                            self?.normalRequest(dataTarget, callbackQueue: callbackQueue, task: task, completion: completion)
                         }
                     })
                 }
             }
         case .CDNFirst:
-            cdnRequest(dataTarget, callbackQueue: callbackQueue) { [weak self] result in
+            cdnRequest(dataTarget, callbackQueue: callbackQueue, task: task) { [weak self] result in
                 switch result {
                 case .success(let response):
                     completion(.success(response))
                 case .failure:
-                    self?.normalRequest(dataTarget, callbackQueue: callbackQueue, completion: completion)
+                    self?.normalRequest(dataTarget, callbackQueue: callbackQueue, task: task, completion: completion)
                 }
             }
             
         }
+        return task
     }
 }
 
@@ -111,8 +114,9 @@ extension MixedNetworkProvider {
 extension MixedNetworkProvider {
     private func  normalRequest(_ dataTarget: DataTargetType,
                                 callbackQueue: DispatchQueue?,
+                                task: TaskToken,
                                 completion: @escaping Completion) {
-        normalStage.request(dataTarget, callbackQueue: callbackQueue) { result in
+        if let normalTask = normalStage.request(dataTarget, callbackQueue: callbackQueue, completion: { result in
             switch result {
             case .success(let response):
                 completion(.success(response))
@@ -122,6 +126,10 @@ extension MixedNetworkProvider {
                 #endif
                 completion(.failure(error))
             }
+        }) {
+            task.restart(with: normalTask)
+        } else {
+            completion(.failure(NetError.underlying(NSError(domain: "normal task is null", code: -99998, userInfo: nil), nil)))
         }
     }
 }
@@ -132,6 +140,7 @@ extension MixedNetworkProvider {
     private func dnsRequest(_ dataTarget: DataTargetType,
                             callbackQueue: DispatchQueue?,
                             error: NetError? = nil ,
+                            task: TaskToken,
                             completion: @escaping Completion) {
         guard let host = dataTarget.fullRequestURL.host else {
             completion(.failure(error ?? NetError.underlying(NSError(domain: "未知错误", code: -99999, userInfo: nil), nil)))
@@ -144,7 +153,7 @@ extension MixedNetworkProvider {
                 #if DEBUG
                 print("HTTPDNS:", host, result.ipAddress)
                 #endif
-                self.dnsStage.request(dataTarget, callbackQueue: callbackQueue) { result in
+                if let dnsTask = self.dnsStage.request(dataTarget, callbackQueue: callbackQueue, completion: { result in
                     switch result {
                     case .success(let response):
                         completion(.success(response))
@@ -154,7 +163,11 @@ extension MixedNetworkProvider {
                         #endif
                         completion(.failure(error))
                     }
+                }){
+                    task.restart(with: dnsTask)
                 }
+            } else {
+                completion(.failure(error ?? NetError.underlying(NSError(domain: "dns task is null", code: -99998, userInfo: nil), nil)))
             }
         }
     }
@@ -167,6 +180,7 @@ extension MixedNetworkProvider {
     private func cdnRequest(_ dataTarget: DataTargetType,
                             callbackQueue: DispatchQueue?,
                             error: NetError? = nil ,
+                            task: TaskToken,
                             completion: @escaping Completion) {
         guard let cdnBaseURL = self.cdnBaseURL(of: dataTarget.baseURL) else {
             completion(.failure(error ?? NetError.underlying(NSError(domain: "未知错误", code: -99999, userInfo: nil), nil)))
@@ -185,7 +199,7 @@ extension MixedNetworkProvider {
         }
         
         let endpoint = Endpoint(baseURL: cdnBaseURL, path: dataTarget.path, method: dataTarget.method, parameters: dataTarget.parameters, headers: dataTarget.headers, validation: dataTarget.validation, priority: dataTarget.priority, timeoutInterval: dataTarget.timeoutInterval)
-        cdnStage.request(endpoint, callbackQueue: callbackQueue) { result in
+        if let cdnTask = cdnStage.request(endpoint, callbackQueue: callbackQueue, completion: { result in
             switch result {
             case .success(let response):
                 completion(.success(response))
@@ -195,7 +209,12 @@ extension MixedNetworkProvider {
                 #endif
                 completion(.failure(error))
             }
+        }) {
+            task.restart(with: cdnTask)
+        } else {
+            completion(.failure(NetError.underlying(NSError(domain: "cdn task is null", code: -99998, userInfo: nil), nil)))
         }
+        
     }
     
     private func cdnBaseURL(of baseURL: URL) -> URL? {

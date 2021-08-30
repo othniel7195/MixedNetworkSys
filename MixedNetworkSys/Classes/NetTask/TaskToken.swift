@@ -88,6 +88,17 @@ final class TaskToken: NetworkUploadTask, NetworkDownloadTask, NetworkDataTask {
         }
     }
     
+    convenience init(){
+        self.init(
+            resumeAction: {
+            },
+            suspendAction: {
+            },
+            cancelAction: {
+            }
+        )
+    }
+    
     func restart(with task: NetworkDataTask) {
         taskIdentifier = task.taskIdentifier
         

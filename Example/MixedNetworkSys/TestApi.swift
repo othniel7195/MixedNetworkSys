@@ -156,9 +156,35 @@ struct ApiTestEng {
         return provider
     }
     
+    func createMixedProvider() -> MixedNetworkProvider {
+        let auth1 = AccessTokenPlugin(tokenClosure: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2NvdW50IjoyNTAwMDksImV4cCI6MTYzMDgzMzIxMSwiaWF0IjoxNjI5OTY5MjExLCJpc3MiOiJodHRwczovL3d3dy5zaHVpbmZvLmNvbSIsInBvcy1hY2NvdW50IjoyNTAwMDksInBvcy1kZXZpY2UiOiIiLCJwb3Mtc3RvcmUiOiI2MGY2NzcxYjgwYmQxNWUyMjZkYzQ0YjciLCJ0ZW5hbnQiOjQwMDAzfQ.Y_YahDeqh3IfPxWrf6-Ek9hgwEJ9wMLp4Lxp4JW3AQE")
+        let provider = MixedNetworkProvider(configuration: .init(useHTTPDNS: true), plugins: [auth1], hosts: ["sobe-api-dev.shuinfo.com"], fallbackStrategy: .httpDNSFirst)
+        return provider
+    }
+    
     //"{\"schedule\":{\"opening_time\":[{\"weekday\":[1,2,3,4,5,6,7],\"opening_hours\":[{\"start_time\":28800,\"end_time\":86399}]}],\"holiday_time\":[]},\"status\":1}"
-    func openHours(_ provider: NetworkProvider, compl: @escaping (_ schedule: Schedule?, _ err: Error?) -> Void) {
-        provider.request(ApiTest.openHours(id: "")) { result in
+    func openHours(_ provider: NetworkProvider, compl: @escaping (_ schedule: Schedule?, _ err: Error?) -> Void) -> NetworkDataTask? {
+        return provider.request(ApiTest.openHours(id: "")) { result in
+            switch result {
+            case .success(let response):
+                let string = try? response.mapString()
+                print("schedule data: \(String(describing: string))")
+                
+                let json = try? response.mapJSON()
+                print("schedule data json: \(String(describing: json))")
+                
+                let scheduleData = try? response.map(Schedule.self, atKeyPath: "schedule")
+                print("schedule data: \(String(describing: scheduleData))")
+                compl(scheduleData, nil)
+            case .failure(let error):
+                print("schedule data error: \(error)")
+                compl(nil, error)
+            }
+        }
+    }
+    
+    func openHoursMixed(_ provider: MixedNetworkProvider, compl: @escaping (_ schedule: Schedule?, _ err: Error?) -> Void) -> NetworkDataTask? {
+        return provider.request(ApiTest.openHours(id: "")) { result in
             switch result {
             case .success(let response):
                 let string = try? response.mapString()

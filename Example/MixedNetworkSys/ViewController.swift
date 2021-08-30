@@ -10,12 +10,25 @@ import UIKit
 import Then
 
 class ViewController: UIViewController {
+    let provider = ApiTestEng().createProvider()
+    let mixedProvider = ApiTestEng().createMixedProvider()
 
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        let provider = ApiTestEng().createProvider()
-        ApiTestEng().openHours(provider) { data, err in
+        
+//       let task = ApiTestEng().openHours(provider) { data, err in
+//            if let err = err {
+//                print(err)
+//            } else {
+//                print(data!)
+//            }
+//            print("==================")
+//        }
+//        task?.cancel()
+        
+        let task2 = ApiTestEng().openHoursMixed(mixedProvider) { data, err in
+            print("==================")
             if let err = err {
                 print(err)
             } else {
@@ -23,17 +36,17 @@ class ViewController: UIViewController {
             }
             print("==================")
         }
-        
+        task2?.cancel()
        
         
-        let sdata: Promise<Schedule> = ApiTestEng().openHoursNew(provider)
-        sdata.then { data in
-            print(data)
-            print("~~~~~~~~~~~~~~~~~~~~~")
-        }.onError { err in
-            print(err)
-            print("~~~~~~~~~~~~~~~~~~~~~~")
-        }
+//        let sdata: Promise<Schedule> = ApiTestEng().openHoursNew(provider)
+//        sdata.then { data in
+//            print(data)
+//            print("~~~~~~~~~~~~~~~~~~~~~")
+//        }.onError { err in
+//            print(err)
+//            print("~~~~~~~~~~~~~~~~~~~~~~")
+//        }
     }
 
     override func didReceiveMemoryWarning() {

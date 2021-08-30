@@ -57,7 +57,7 @@ public class NetworkProvider {
         
         defaultHeaders()
         
-        sessionManager = Session(configuration: configuration.urlSessionConfiguration, interceptor: requestInterceptor, serverTrustManager: servertrustManager)
+        sessionManager = Session(configuration: configuration.urlSessionConfiguration, startRequestsImmediately: false, interceptor: requestInterceptor, serverTrustManager: servertrustManager)
     }
     
     @discardableResult
@@ -130,7 +130,9 @@ public class NetworkProvider {
                                                callbackQueue: callbackQueue,
                                                completion: completion)
             }
-        return TaskToken(requestTask: downloadRequest)
+        let task = TaskToken(requestTask: downloadRequest)
+        task.resume()
+        return task
         
     }
     
@@ -167,7 +169,9 @@ public class NetworkProvider {
                                                callbackQueue: callbackQueue,
                                                completion: completion)
             }
-        return TaskToken(requestTask: uploadRequest)
+        let task = TaskToken(requestTask: uploadRequest)
+        task.resume()
+        return task
     }
     
 }
