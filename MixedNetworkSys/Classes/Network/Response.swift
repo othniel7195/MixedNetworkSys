@@ -150,6 +150,7 @@ extension Response {
             }
             return try decoder.decode(D.self, from: jsonData)
         } catch let error {
+            debugPrint(error)
             throw NetError.objectMapping(error, self)
         }
     }
