@@ -84,7 +84,7 @@ extension NetworkLoggerPlugin {
                                         error: NetError?,
                                         target: TargetType) -> String {
         var logString = error.flatMap {
-            "\(loggerId): [\(date)] Response: Received error for \(target). Error is \($0)"
+            "\(loggerId): [\(date)] Response: Received error for \(target). Error is \($0).\nResponse:\(error?.response?.response?.description ?? "NULL")"
         } ?? "\(loggerId): [\(date)] Response: \(response?.description ?? "mock data")"
         
         let logData: Data? = data ?? error?.response?.data
