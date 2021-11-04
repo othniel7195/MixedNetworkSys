@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import Alamofire
+import RealReachability
 
 open class Reachability {
 
@@ -14,10 +14,6 @@ open class Reachability {
         case unknown
         case notReachable
         case reachable(NetConnectionType)
-    }
-    
-    public enum Notification {
-        public static let networkReachabilityChanged = Foundation.Notification.Name("net.reachabilityChanged.new")
     }
    
     public enum NetConnectionType {
@@ -38,40 +34,68 @@ open class Reachability {
         return networkReachabilityStatus == .reachable(.ethernetOrWiFi)
     }
     
+    open var isVPN: Bool {
+        return RealReachability.sharedInstance().isVPNOn()
+    }
+    
     /// The current network reachability status.
-    open var networkReachabilityStatus: NetReachabilityStatus {
-        switch afNetworkReachabilityManager?.status {
-        case .notReachable:
-            return .notReachable
-        case .reachable(let connectionType):
-            switch connectionType {
-            case .ethernetOrWiFi:
-                return .reachable(.ethernetOrWiFi)
-            case .cellular:
-                return .reachable(.wwan)
-            }
-        case .unknown:
-            return .unknown
-        default:
-            return .unknown
+    open var networkReachabilityStatus: NetReachabilityStatus = .unknown {
+        didSet {
+            listener?(networkReachabilityStatus)
         }
     }
     
     open func startListening() {
-        afNetworkReachabilityManager?.startListening { [weak self] _ in
+        RealReachability.sharedInstance().startNotifier()
+        NotificationCenter.default.addObserver(forName: .realReachabilityChanged, object: nil, queue: OperationQueue.main) { [weak self] notification in
             guard let self = self else { return }
-            
-            self.listener?(self.networkReachabilityStatus)
-            
-            NotificationCenter.default.post(
-                name: Reachability.Notification.networkReachabilityChanged,
-                object: self
-            )
+            if let reachability = notification.object  as? RealReachability {
+                let status = reachability.currentReachabilityStatus()
+                switch status {
+                case .RealStatusUnknown:
+                    self.doubleCheck()
+                case .RealStatusNotReachable:
+                    self.doubleCheck()
+                case .RealStatusViaWWAN:
+                    self.networkReachabilityStatus = .reachable(.wwan)
+                case .RealStatusViaWiFi:
+                    self.networkReachabilityStatus = .reachable(.ethernetOrWiFi)
+                default:
+                    self.doubleCheck()
+                }
+            }
         }
     }
     
+    open var checkInterval: TimeInterval = 2.0 {
+        didSet {
+            RealReachability.sharedInstance().autoCheckInterval = Float(checkInterval)
+        }
+    }
+    
+    private func doubleCheck() {
+        RealReachability.sharedInstance().reachability { status in
+            switch status {
+            case .RealStatusUnknown:
+                self.networkReachabilityStatus = .unknown
+            case .RealStatusNotReachable:
+                self.networkReachabilityStatus = .notReachable
+            case .RealStatusViaWWAN:
+                self.networkReachabilityStatus = .reachable(.wwan)
+            case .RealStatusViaWiFi:
+                self.networkReachabilityStatus = .reachable(.ethernetOrWiFi)
+            default:
+                self.networkReachabilityStatus = .unknown
+            }
+        }
+    }
     open func stopListening() {
-        afNetworkReachabilityManager?.stopListening()
+        RealReachability.sharedInstance().stopNotifier()
+    }
+    
+    open func resetCheckHost(_ host: String) {
+        RealReachability.sharedInstance().hostForPing = host
+        RealReachability.sharedInstance().hostForCheck = host
     }
     
     open var listener: Listener?
@@ -80,12 +104,13 @@ open class Reachability {
     
     
     public init(checkHost: String) {
-        self.afNetworkReachabilityManager = Alamofire.NetworkReachabilityManager(host: checkHost)
+        RealReachability.sharedInstance().hostForPing = checkHost
+        RealReachability.sharedInstance().hostForCheck = checkHost
     }
+    
     
     public static let shared = Reachability(checkHost: "www.baidu.com")
     
-    let afNetworkReachabilityManager: Alamofire.NetworkReachabilityManager?
 }
 
 extension Reachability.NetReachabilityStatus: Equatable {

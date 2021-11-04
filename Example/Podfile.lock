@@ -1,7 +1,13 @@
 PODS:
-  - Alamofire (5.4.3)
+  - Alamofire (5.4.4)
   - MixedNetworkSys (0.1.0):
     - Alamofire
+    - RealReachability
+  - RealReachability (1.4.1):
+    - RealReachability/Connection (= 1.4.1)
+    - RealReachability/Ping (= 1.4.1)
+  - RealReachability/Connection (1.4.1)
+  - RealReachability/Ping (1.4.1)
   - thenPromise (5.1.2)
 
 DEPENDENCIES:
@@ -11,6 +17,7 @@ DEPENDENCIES:
 SPEC REPOS:
   trunk:
     - Alamofire
+    - RealReachability
     - thenPromise
 
 EXTERNAL SOURCES:
@@ -18,10 +25,11 @@ EXTERNAL SOURCES:
     :path: "../"
 
 SPEC CHECKSUMS:
-  Alamofire: e447a2774a40c996748296fa2c55112fdbbc42f9
-  MixedNetworkSys: 1adff35360b711d8be8e8171484beafdeafb302d
+  Alamofire: f3b09a368f1582ab751b3fff5460276e0d2cf5c9
+  MixedNetworkSys: eabdd71dab071f60b99d7a90767dc10de99992cb
+  RealReachability: 828e74e3a1e89ba8f54395344637689cf4065c36
   thenPromise: c1a319348c6052652b071d8dd4c6db9984860209
 
-PODFILE CHECKSUM: 84d73339ad42efaf408adbcc2cb694221d304e18
+PODFILE CHECKSUM: 5c06d601824d8712ecb56bbb7c6986aa6cc9a7c6
 
-COCOAPODS: 1.10.1
+COCOAPODS: 1.11.2
